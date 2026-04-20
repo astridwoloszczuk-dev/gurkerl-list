@@ -134,6 +134,55 @@ async function addItem() {
 addBtn.addEventListener('click', addItem);
 inputEl.addEventListener('keydown', e => e.key === 'Enter' && addItem());
 
+// ── Voice input ───────────────────────────────────────────────────────────────
+const micBtn = document.getElementById('mic-btn');
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+if (!SpeechRecognition) {
+  micBtn.style.display = 'none';
+} else {
+  const recognition = new SpeechRecognition();
+  recognition.lang = 'de-AT';
+  recognition.interimResults = true;
+  recognition.maxAlternatives = 1;
+
+  let listening = false;
+
+  micBtn.addEventListener('click', () => {
+    if (listening) { recognition.stop(); return; }
+    recognition.start();
+  });
+
+  recognition.addEventListener('start', () => {
+    listening = true;
+    micBtn.classList.add('listening');
+    inputEl.placeholder = 'Listening…';
+  });
+
+  recognition.addEventListener('result', e => {
+    const transcript = Array.from(e.results)
+      .map(r => r[0].transcript).join('');
+    inputEl.value = transcript;
+    if (e.results[e.results.length - 1].isFinal) {
+      recognition.stop();
+      addItem();
+    }
+  });
+
+  recognition.addEventListener('end', () => {
+    listening = false;
+    micBtn.classList.remove('listening');
+    inputEl.placeholder = 'Add item…';
+  });
+
+  recognition.addEventListener('error', e => {
+    console.error('Speech error', e.error);
+    listening = false;
+    micBtn.classList.remove('listening');
+    inputEl.placeholder = 'Add item…';
+  });
+}
+
 // ── Complete / delete ─────────────────────────────────────────────────────────
 listEl.addEventListener('click', async e => {
   const checkBtn = e.target.closest('.check-btn');
