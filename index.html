@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#16a34a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Gurkerl List</title>
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="icon" href="/icon-192.svg" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green:     #16a34a;
+      --green-lt:  #dcfce7;
+      --green-mid: #86efac;
+      --red:       #dc2626;
+      --gray-50:   #f9fafb;
+      --gray-100:  #f3f4f6;
+      --gray-200:  #e5e7eb;
+      --gray-400:  #9ca3af;
+      --gray-600:  #4b5563;
+      --gray-900:  #111827;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--gray-50);
+      color: var(--gray-900);
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--green);
+      color: white;
+      padding: 0 16px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      box-shadow: 0 1px 3px rgba(0,0,0,.15);
+    }
+
+    .app-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: -.01em;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    #user-badge {
+      font-size: .8rem;
+      background: rgba(255,255,255,.2);
+      border: none;
+      color: white;
+      padding: 4px 10px;
+      border-radius: 999px;
+      cursor: pointer;
+      white-space: nowrap;
+      max-width: 120px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    #user-badge:hover { background: rgba(255,255,255,.3); }
+
+    /* ── Add bar ── */
+    .add-bar {
+      background: white;
+      border-bottom: 1px solid var(--gray-200);
+      padding: 12px 16px;
+      display: flex;
+      gap: 8px;
+      position: sticky;
+      top: 56px;
+      z-index: 9;
+    }
+
+    #item-input {
+      flex: 1;
+      border: 1.5px solid var(--gray-200);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 1rem;
+      outline: none;
+      transition: border-color .15s;
+      background: var(--gray-50);
+    }
+    #item-input:focus { border-color: var(--green); background: white; }
+    #item-input::placeholder { color: var(--gray-400); }
+
+    #add-btn {
+      background: var(--green);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      padding: 0 18px;
+      font-size: 1.5rem;
+      cursor: pointer;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background .15s;
+    }
+    #add-btn:hover { background: #15803d; }
+    #add-btn:active { background: #166534; }
+
+    /* ── List ── */
+    main { flex: 1; padding: 12px 0 32px; }
+
+    #item-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+
+    .item {
+      background: white;
+      display: flex;
+      align-items: center;
+      padding: 12px 16px;
+      gap: 12px;
+      animation: slideIn .15s ease;
+    }
+    .item:first-child { border-radius: 12px 12px 0 0; }
+    .item:last-child  { border-radius: 0 0 12px 12px; }
+    .item:only-child  { border-radius: 12px; }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .check-btn {
+      width: 26px;
+      height: 26px;
+      min-width: 26px;
+      border-radius: 50%;
+      border: 2px solid var(--gray-200);
+      background: white;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: border-color .15s, background .15s;
+      color: white;
+    }
+    .check-btn:hover { border-color: var(--green); }
+    .check-btn svg { width: 14px; height: 14px; display: none; }
+
+    .item.completed .check-btn {
+      background: var(--green);
+      border-color: var(--green);
+    }
+    .item.completed .check-btn svg { display: block; }
+
+    .item-body {
+      flex: 1;
+      min-width: 0;
+    }
+    .item-name {
+      display: block;
+      font-size: .975rem;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .item.completed .item-name {
+      text-decoration: line-through;
+      color: var(--gray-400);
+    }
+    .item-meta {
+      display: block;
+      font-size: .72rem;
+      color: var(--gray-400);
+      margin-top: 2px;
+    }
+
+    .delete-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      border: none;
+      background: transparent;
+      color: var(--gray-400);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity .15s, background .15s, color .15s;
+    }
+    .delete-btn svg { width: 14px; height: 14px; }
+    .item:hover .delete-btn { opacity: 1; }
+    .delete-btn:hover { background: #fee2e2; color: var(--red); }
+
+    /* ── Empty state ── */
+    #empty-state {
+      text-align: center;
+      padding: 64px 24px;
+      color: var(--gray-400);
+    }
+    #empty-state .empty-icon { font-size: 3rem; margin-bottom: 12px; }
+    #empty-state p { font-size: .9rem; }
+    #empty-state.hidden { display: none; }
+
+    /* ── User modal ── */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 24px;
+    }
+    .modal-backdrop.hidden { display: none; }
+
+    .modal {
+      background: white;
+      border-radius: 16px;
+      padding: 28px 24px;
+      width: 100%;
+      max-width: 340px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.2);
+    }
+    .modal h2 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .modal p {
+      font-size: .85rem;
+      color: var(--gray-600);
+      margin-bottom: 16px;
+    }
+    .modal input {
+      width: 100%;
+      border: 1.5px solid var(--gray-200);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 1rem;
+      outline: none;
+      margin-bottom: 12px;
+    }
+    .modal input:focus { border-color: var(--green); }
+    .modal button {
+      width: 100%;
+      background: var(--green);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      padding: 12px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .modal button:hover { background: #15803d; }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="app-title">🥒 Gurkerl List</div>
+    <button id="user-badge">Set name</button>
+  </header>
+
+  <!-- Add bar -->
+  <div class="add-bar">
+    <input id="item-input" type="text" placeholder="Add item…" autocomplete="off" autocorrect="off" />
+    <button id="add-btn" aria-label="Add item">+</button>
+  </div>
+
+  <!-- List -->
+  <main>
+    <ul id="item-list"></ul>
+    <div id="empty-state">
+      <div class="empty-icon">🛒</div>
+      <p>Nothing on the list yet.<br>Add something above!</p>
+    </div>
+  </main>
+
+  <!-- Name modal -->
+  <div id="user-modal" class="modal-backdrop hidden">
+    <div class="modal">
+      <h2>Who are you? 👋</h2>
+      <p>So others can see who added what.</p>
+      <input id="user-name-input" type="text" placeholder="Your name" maxlength="30" />
+      <button id="user-save-btn">Save</button>
+    </div>
+  </div>
+
+  <!-- Supabase SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
