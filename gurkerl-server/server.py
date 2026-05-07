@@ -99,7 +99,7 @@ class GurkerClient:
         resp.raise_for_status()
         result = resp.json()
         if not self._debug_logged:
-            log.debug(f'Raw search response sample: {json.dumps(result)[:800]}')
+            log.info(f'RAW SEARCH RESPONSE: {json.dumps(result)[:1200]}')
             self._debug_logged = True
         return result
 
@@ -112,8 +112,12 @@ class GurkerClient:
             raw = (
                 data.get('products')
                 or data.get('productList', {}).get('products')
+                or data.get('hits', {}).get('hits')
+                or data.get('items')
                 or []
             )
+        if not raw:
+            log.warning(f'No products found. Top-level keys: {list(search_response.keys())}, data keys: {list(data.keys()) if isinstance(data, dict) else type(data)}')
 
         products = []
         for p in raw:
