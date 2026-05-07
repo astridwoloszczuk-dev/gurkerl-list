@@ -19,8 +19,17 @@ const userNameEl  = document.getElementById('user-name-input');
 const userSaveBtn = document.getElementById('user-save-btn');
 const emptyState  = document.getElementById('empty-state');
 
-// ── Gurkerl cart config ───────────────────────────────────────────────────────
-const CART_USERS = ['Astrid', 'Niko'];
+// ── Gurkerl cart config & DOM refs ───────────────────────────────────────────
+const CART_USERS   = ['Astrid', 'Niko'];
+const cartBtn      = document.getElementById('cart-btn');
+const cartModal    = document.getElementById('cart-modal');
+const cartStateEls = {
+  loading: document.getElementById('cart-loading'),
+  matches: document.getElementById('cart-matches'),
+  adding:  document.getElementById('cart-adding'),
+  done:    document.getElementById('cart-done'),
+  error:   document.getElementById('cart-error'),
+};
 
 // ── User setup ───────────────────────────────────────────────────────────────
 function showUserModal() {
@@ -217,15 +226,6 @@ updateCartButton();
 loadItems();
 
 // ── Gurkerl cart ──────────────────────────────────────────────────────────────
-const cartBtn   = document.getElementById('cart-btn');
-const cartModal = document.getElementById('cart-modal');
-const cartStateEls = {
-  loading: document.getElementById('cart-loading'),
-  matches: document.getElementById('cart-matches'),
-  adding:  document.getElementById('cart-adding'),
-  done:    document.getElementById('cart-done'),
-  error:   document.getElementById('cart-error'),
-};
 
 let cartRequestId = null;
 let cartChannel   = null;
