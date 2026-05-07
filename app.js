@@ -19,6 +19,9 @@ const userNameEl  = document.getElementById('user-name-input');
 const userSaveBtn = document.getElementById('user-save-btn');
 const emptyState  = document.getElementById('empty-state');
 
+// ── Gurkerl cart config ───────────────────────────────────────────────────────
+const CART_USERS = ['Astrid', 'Niko'];
+
 // ── User setup ───────────────────────────────────────────────────────────────
 function showUserModal() {
   userModal.classList.remove('hidden');
@@ -32,6 +35,7 @@ function saveUser() {
   localStorage.setItem('gurkerl_user', name);
   userModal.classList.add('hidden');
   userBadge.textContent = name;
+  updateCartButton();
 }
 
 userSaveBtn.addEventListener('click', saveUser);
@@ -209,7 +213,163 @@ if (!currentUser) {
 } else {
   userBadge.textContent = currentUser;
 }
+updateCartButton();
 loadItems();
+
+// ── Gurkerl cart ──────────────────────────────────────────────────────────────
+const cartBtn   = document.getElementById('cart-btn');
+const cartModal = document.getElementById('cart-modal');
+const cartStateEls = {
+  loading: document.getElementById('cart-loading'),
+  matches: document.getElementById('cart-matches'),
+  adding:  document.getElementById('cart-adding'),
+  done:    document.getElementById('cart-done'),
+  error:   document.getElementById('cart-error'),
+};
+
+let cartRequestId = null;
+let cartChannel   = null;
+let cartMatches   = [];
+let cartTimeout   = null;
+
+function updateCartButton() {
+  cartBtn.classList.toggle('hidden', !CART_USERS.includes(currentUser));
+}
+
+function showCartState(name) {
+  Object.entries(cartStateEls).forEach(([k, el]) =>
+    el.classList.toggle('hidden', k !== name)
+  );
+  cartModal.classList.remove('hidden');
+}
+
+function hideCartModal() {
+  cartModal.classList.add('hidden');
+  if (cartChannel) { db.removeChannel(cartChannel); cartChannel = null; }
+  if (cartTimeout) { clearTimeout(cartTimeout); cartTimeout = null; }
+  cartRequestId = null;
+  cartMatches   = [];
+}
+
+function renderMatches(matches) {
+  cartMatches = matches.map(m => ({ ...m }));
+  const list = document.getElementById('cart-match-list');
+  list.innerHTML = '';
+
+  cartMatches.forEach((match, i) => {
+    const div = document.createElement('div');
+    div.className = 'match-item';
+
+    const lbl = document.createElement('div');
+    lbl.className = 'match-item-label';
+    lbl.textContent = match.item_name;
+    div.appendChild(lbl);
+
+    if (!match.candidates || match.candidates.length === 0) {
+      const none = document.createElement('div');
+      none.className = 'match-no-result';
+      none.textContent = 'No match found — will be skipped';
+      div.appendChild(none);
+    } else {
+      const sel = document.createElement('select');
+      sel.className = 'match-select';
+      sel.dataset.idx = i;
+
+      match.candidates.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.product_id;
+        const parts = [c.name, c.brand, c.amount, c.price].filter(Boolean);
+        opt.textContent = (c.is_frequent ? '★ ' : '') + parts.join(' · ');
+        if (c.product_id === match.selected_product_id) opt.selected = true;
+        sel.appendChild(opt);
+      });
+
+      const skip = document.createElement('option');
+      skip.value = '';
+      skip.textContent = '— Skip this item —';
+      sel.appendChild(skip);
+
+      sel.addEventListener('change', e => {
+        cartMatches[+e.target.dataset.idx].selected_product_id = e.target.value || null;
+      });
+      div.appendChild(sel);
+    }
+
+    list.appendChild(div);
+  });
+}
+
+function subscribeToRequest(id) {
+  cartChannel = db.channel(`cart-req-${id}`)
+    .on('postgres_changes', {
+      event: 'UPDATE',
+      schema: 'public',
+      table: 'gurkerl_cart_requests',
+      filter: `id=eq.${id}`,
+    }, ({ new: row }) => {
+      if (cartTimeout) { clearTimeout(cartTimeout); cartTimeout = null; }
+      if (row.status === 'awaiting_confirmation') {
+        renderMatches(row.matches || []);
+        showCartState('matches');
+      } else if (row.status === 'adding') {
+        showCartState('adding');
+      } else if (row.status === 'done') {
+        showCartState('done');
+      } else if (row.status === 'failed') {
+        document.getElementById('cart-error-msg').textContent = row.error || 'Something went wrong.';
+        showCartState('error');
+      }
+    })
+    .subscribe();
+}
+
+async function startCartRequest() {
+  if (!currentUser) { showUserModal(); return; }
+  showCartState('loading');
+
+  try {
+    const { data, error } = await db.from('gurkerl_cart_requests')
+      .insert({ requested_by: currentUser, status: 'pending' })
+      .select().single();
+    if (error) throw error;
+
+    cartRequestId = data.id;
+    subscribeToRequest(cartRequestId);
+
+    cartTimeout = setTimeout(() => {
+      document.getElementById('cart-error-msg').textContent =
+        'No response from the VPS server. Is it running?';
+      showCartState('error');
+    }, 90_000);
+
+  } catch (err) {
+    console.error('Cart request error:', err);
+    document.getElementById('cart-error-msg').textContent = 'Could not create cart request.';
+    showCartState('error');
+  }
+}
+
+async function confirmCart() {
+  if (!cartRequestId) return;
+  try {
+    const { error } = await db.from('gurkerl_cart_requests')
+      .update({ status: 'confirmed', matches: cartMatches })
+      .eq('id', cartRequestId);
+    if (error) throw error;
+    showCartState('adding');
+  } catch (err) {
+    console.error('Confirm error:', err);
+    document.getElementById('cart-error-msg').textContent = 'Could not confirm selection.';
+    showCartState('error');
+  }
+}
+
+cartBtn.addEventListener('click', startCartRequest);
+document.getElementById('cart-confirm-btn').addEventListener('click', confirmCart);
+document.getElementById('cart-cancel-btn').addEventListener('click', hideCartModal);
+document.getElementById('cart-close-btn').addEventListener('click', hideCartModal);
+document.getElementById('cart-retry-btn').addEventListener('click', () => { hideCartModal(); startCartRequest(); });
+document.getElementById('cart-error-close-btn').addEventListener('click', hideCartModal);
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js');

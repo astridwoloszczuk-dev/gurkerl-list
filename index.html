@@ -242,6 +242,74 @@
     #empty-state p { font-size: .9rem; }
     #empty-state.hidden { display: none; }
 
+    /* ── Cart button ── */
+    #cart-btn {
+      background: rgba(255,255,255,.2);
+      border: none;
+      color: white;
+      padding: 4px 12px;
+      border-radius: 999px;
+      cursor: pointer;
+      font-size: .85rem;
+      white-space: nowrap;
+    }
+    #cart-btn:hover { background: rgba(255,255,255,.3); }
+    #cart-btn.hidden { display: none; }
+
+    /* ── Cart modal ── */
+    .cart-modal { max-height: 85vh; display: flex; flex-direction: column; padding: 24px 20px; }
+    .cart-state.hidden { display: none; }
+
+    .cart-center { text-align: center; padding: 12px 0; }
+
+    .spinner {
+      width: 36px; height: 36px;
+      border: 3px solid var(--gray-200);
+      border-top-color: var(--green);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      margin: 0 auto 14px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .cart-title { font-size: 1.05rem; font-weight: 700; margin-bottom: 4px; }
+    .cart-subtitle { font-size: .8rem; color: var(--gray-600); margin-bottom: 14px; }
+
+    .cart-match-list { flex: 1; overflow-y: auto; margin: 0 -4px; padding: 0 4px 4px; }
+    .match-item { margin-bottom: 13px; }
+    .match-item-label {
+      font-size: .72rem; font-weight: 600; color: var(--gray-600);
+      text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px;
+    }
+    .match-select {
+      width: 100%; border: 1.5px solid var(--gray-200); border-radius: 8px;
+      padding: 8px 10px; font-size: .88rem; background: var(--gray-50);
+      outline: none; cursor: pointer;
+    }
+    .match-select:focus { border-color: var(--green); }
+    .match-no-result { font-size: .83rem; color: var(--gray-400); font-style: italic; }
+
+    .cart-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+    .btn-primary {
+      background: var(--green); color: white; border: none;
+      border-radius: 10px; padding: 12px; font-size: 1rem; font-weight: 600; cursor: pointer;
+    }
+    .btn-primary:hover { background: #15803d; }
+    .btn-secondary {
+      background: transparent; color: var(--gray-600);
+      border: 1.5px solid var(--gray-200); border-radius: 10px;
+      padding: 10px; font-size: .9rem; cursor: pointer;
+    }
+    .btn-secondary:hover { background: var(--gray-100); }
+
+    .cart-success-icon { font-size: 2.2rem; margin-bottom: 10px; }
+    .cart-link {
+      display: inline-block; color: var(--green); font-size: .9rem;
+      text-decoration: none; margin: 8px 0 16px;
+    }
+    .cart-link:hover { text-decoration: underline; }
+    .cart-error-text { color: var(--red); font-size: .88rem; margin-bottom: 14px; }
+
     /* ── User modal ── */
     .modal-backdrop {
       position: fixed;
@@ -302,6 +370,7 @@
   <!-- Header -->
   <header>
     <div class="app-title">🥒 Gurkerl List</div>
+    <button id="cart-btn" class="hidden" title="Send to Gurkerl basket">🛒 Gurkerl</button>
     <button id="user-badge">Set name</button>
   </header>
 
@@ -327,6 +396,63 @@
       <p>Nothing on the list yet.<br>Add something above!</p>
     </div>
   </main>
+
+  <!-- Cart modal -->
+  <div id="cart-modal" class="modal-backdrop hidden">
+    <div class="modal cart-modal">
+
+      <!-- Loading / matching -->
+      <div id="cart-loading" class="cart-state">
+        <div class="cart-center">
+          <div class="spinner"></div>
+          <p>Searching Gurkerl.at…</p>
+        </div>
+      </div>
+
+      <!-- Awaiting confirmation -->
+      <div id="cart-matches" class="cart-state hidden">
+        <div class="cart-title">Send to Gurkerl 🛒</div>
+        <div class="cart-subtitle">★ = previously ordered &nbsp;·&nbsp; adjust or skip any item</div>
+        <div id="cart-match-list" class="cart-match-list"></div>
+        <div class="cart-actions">
+          <button id="cart-confirm-btn" class="btn-primary">Add to basket</button>
+          <button id="cart-cancel-btn" class="btn-secondary">Cancel</button>
+        </div>
+      </div>
+
+      <!-- Adding to cart -->
+      <div id="cart-adding" class="cart-state hidden">
+        <div class="cart-center">
+          <div class="spinner"></div>
+          <p>Adding to your Gurkerl basket…</p>
+        </div>
+      </div>
+
+      <!-- Done -->
+      <div id="cart-done" class="cart-state hidden">
+        <div class="cart-center">
+          <div class="cart-success-icon">✅</div>
+          <p>Added to your Gurkerl basket!</p>
+          <a class="cart-link" href="https://www.gurkerl.at" target="_blank" rel="noopener">Open Gurkerl.at →</a>
+          <div class="cart-actions">
+            <button id="cart-close-btn" class="btn-secondary">Close</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Error -->
+      <div id="cart-error" class="cart-state hidden">
+        <div class="cart-center">
+          <p class="cart-error-text" id="cart-error-msg">Something went wrong.</p>
+          <div class="cart-actions">
+            <button id="cart-retry-btn" class="btn-primary">Try again</button>
+            <button id="cart-error-close-btn" class="btn-secondary">Cancel</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
 
   <!-- Name modal -->
   <div id="user-modal" class="modal-backdrop hidden">
