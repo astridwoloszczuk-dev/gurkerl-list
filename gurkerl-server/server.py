@@ -55,6 +55,14 @@ class GurkerClient:
             'name': '',
         })
         resp.raise_for_status()
+        log.info(f'Login response: {resp.text[:600]}')
+        log.info(f'Login cookies: {dict(self.session.cookies)}')
+        # Use Bearer token if present
+        data = resp.json()
+        token = (data.get('data') or {}).get('token') or (data.get('data') or {}).get('accessToken') or data.get('token')
+        if token:
+            self.session.headers['Authorization'] = f'Bearer {token}'
+            log.info(f'Using Bearer token: {token[:40]}...')
         self._logged_in = True
         log.info('Logged into Gurkerl.at')
 
