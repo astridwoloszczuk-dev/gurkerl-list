@@ -158,11 +158,8 @@ class GurkerClient:
         resp = self.session.post(
             f'{GURKERL_BASE}/services/frontend-service/v2/cart',
             json={
-                'actionId': None,
                 'productId': int(product_id),
                 'quantity': quantity,
-                'recipeId': None,
-                'source': 'true:Shopping Lists',
             },
         )
         log.info(f'add_to_cart {product_id}: HTTP {resp.status_code} — {resp.text[:300]}')
