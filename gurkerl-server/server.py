@@ -66,9 +66,20 @@ class GurkerClient:
         self._logged_in = True
         log.info('Logged into Gurkerl.at')
 
+    def _check_auth(self):
+        for path in ['/services/frontend-service/user', '/services/frontend-service/profile', '/api/v3/user']:
+            try:
+                resp = self.session.get(f'{GURKERL_BASE}{path}')
+                log.info(f'AUTH CHECK {path} → {resp.status_code}: {resp.text[:200]}')
+                if resp.ok:
+                    break
+            except Exception as e:
+                log.info(f'AUTH CHECK {path} → ERROR: {e}')
+
     def ensure_logged_in(self):
         if not self._logged_in:
             self.login()
+            self._check_auth()
             self._load_frequent_items()
             self.discover_list_endpoints()
 
