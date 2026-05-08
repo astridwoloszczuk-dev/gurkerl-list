@@ -49,26 +49,24 @@ class GurkerClient:
         self._debug_logged = False  # log raw response once for debugging
 
     def login(self):
-        for endpoint in [
-            '/services/frontend-service/login',
-            '/services/frontend-service/v2/login',
-        ]:
-            resp = self.session.post(f'{GURKERL_BASE}{endpoint}', json={
-                'email': GURKERL_EMAIL,
-                'password': GURKERL_PASSWORD,
-            })
-            log.info(f'Login {endpoint}: HTTP {resp.status_code} — {resp.text[:400]}')
-            try:
-                data = resp.json()
-            except Exception:
-                continue
+        # Prime session with homepage visit (sets initial cookies)
+        self.session.get(GURKERL_BASE)
+
+        resp = self.session.post(f'{GURKERL_BASE}/services/frontend-service/login', json={
+            'email': GURKERL_EMAIL,
+            'password': GURKERL_PASSWORD,
+        })
+        log.info(f'Login: HTTP {resp.status_code} — {resp.text[:600]}')
+        try:
+            data = resp.json()
             user = (data.get('data') or {}).get('user')
             if user:
                 log.info(f'Authenticated as: {user}')
                 self._logged_in = True
                 return
-        # Fall back to trusting the session cookies even if user field is null
-        log.warning('Login user=null on all endpoints — proceeding with session cookies anyway')
+        except Exception:
+            pass
+        log.warning('Login user=null — proceeding with session cookies')
         self._logged_in = True
 
     def _check_auth(self):
