@@ -61,36 +61,14 @@ class GurkerClient:
             'name': '',
             'password': GURKERL_PASSWORD,
         })
-        log.info(f'Login (json+companyId): HTTP {resp.status_code} — {resp.text[:600]}')
-        try:
-            data = resp.json()
-            user = (data.get('data') or {}).get('user')
-            if user:
-                log.info(f'Authenticated as: {user}')
-                self._logged_in = True
-                return
-        except Exception:
-            pass
-
-        log.warning('Login user=null — proceeding with session cookies')
+        resp.raise_for_status()
         self._logged_in = True
-
-    def _check_auth(self):
-        for path in ['/services/frontend-service/user', '/services/frontend-service/profile', '/api/v3/user']:
-            try:
-                resp = self.session.get(f'{GURKERL_BASE}{path}')
-                log.info(f'AUTH CHECK {path} → {resp.status_code}: {resp.text[:200]}')
-                if resp.ok:
-                    break
-            except Exception as e:
-                log.info(f'AUTH CHECK {path} → ERROR: {e}')
+        log.info('Logged into Gurkerl.at')
 
     def ensure_logged_in(self):
         if not self._logged_in:
             self.login()
-            self._check_auth()
             self._load_frequent_items()
-            self.discover_list_endpoints()
 
     def _load_frequent_items(self):
         try:
@@ -183,34 +161,12 @@ class GurkerClient:
         products.sort(key=lambda x: (0 if x['is_frequent'] else 1))
         return products[:5]
 
-    def discover_list_endpoints(self):
-        """Probe candidate endpoints to find the right lists API."""
-        candidates = [
-            ('GET',  '/api/v3/shoppingList'),
-            ('GET',  '/api/v3/shopping-lists'),
-            ('GET',  '/api/v3/lists'),
-            ('GET',  '/services/frontend-service/v2/lists'),
-            ('GET',  '/services/frontend-service/shopping-lists'),
-        ]
-        for method, path in candidates:
-            try:
-                resp = self.session.request(method, f'{GURKERL_BASE}{path}')
-                log.info(f'PROBE {method} {path} → {resp.status_code}: {resp.text[:200]}')
-            except Exception as e:
-                log.info(f'PROBE {method} {path} → ERROR: {e}')
-
     def add_to_cart(self, product_id: str, quantity: int = 1):
         resp = self.session.post(
             f'{GURKERL_BASE}/services/frontend-service/v2/cart',
             json={'productId': int(product_id), 'quantity': quantity},
         )
-        log.info(f'add_to_cart {product_id}: HTTP {resp.status_code} — {resp.text[:300]}')
         resp.raise_for_status()
-
-    def read_cart(self):
-        resp = self.session.get(f'{GURKERL_BASE}/services/frontend-service/v2/cart')
-        log.info(f'read_cart: HTTP {resp.status_code} — {resp.text[:600]}')
-        return resp.json() if resp.ok else {}
 
 
 gurkerl = GurkerClient()
@@ -275,7 +231,6 @@ def process_pending(req: dict):
 
     except Exception as e:
         gurkerl._logged_in = False
-        gurkerl._debug_logged = False
         fail(request_id, str(e))
 
 
@@ -309,13 +264,11 @@ def process_confirmed(req: dict):
             added.append(match['item_name'])
             log.info(f'  ✓ {match["item_name"]}')
 
-        gurkerl.read_cart()
         set_status(request_id, 'done')
         log.info(f'[{request_id[:8]}] Done — {len(added)} item(s) added to basket')
 
     except Exception as e:
         gurkerl._logged_in = False
-        gurkerl._debug_logged = False
         fail(request_id, str(e))
 
 
