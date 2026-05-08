@@ -160,11 +160,12 @@ class GurkerClient:
             json={
                 'actionId': None,
                 'productId': int(product_id),
-                'quantity': str(quantity),
+                'quantity': quantity,
                 'recipeId': None,
                 'source': 'true:Shopping Lists',
             },
         )
+        log.info(f'add_to_cart {product_id}: HTTP {resp.status_code} — {resp.text[:300]}')
         resp.raise_for_status()
 
 
