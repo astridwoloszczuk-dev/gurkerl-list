@@ -171,32 +171,18 @@ class GurkerClient:
             except Exception as e:
                 log.info(f'PROBE {method} {path} → ERROR: {e}')
 
-    def create_list(self, name: str) -> str:
-        """Create a new shopping list, return its ID."""
+    def add_to_cart(self, product_id: str, quantity: int = 1):
         resp = self.session.post(
-            f'{GURKERL_BASE}/api/v3/shoppingList',
-            json={'name': name},
-        )
-        log.info(f'create_list: HTTP {resp.status_code} — {resp.text[:400]}')
-        resp.raise_for_status()
-        data = resp.json()
-        list_id = (
-            (data.get('data') or {}).get('id')
-            or (data.get('data') or {}).get('listId')
-            or data.get('id')
-            or data.get('listId')
-        )
-        if not list_id:
-            raise ValueError(f'Could not find list ID in response: {data}')
-        return str(list_id)
-
-    def add_to_list(self, list_id: str, product_id: str, quantity: int = 1):
-        resp = self.session.post(
-            f'{GURKERL_BASE}/api/v3/shoppingList/{list_id}/products',
+            f'{GURKERL_BASE}/services/frontend-service/v2/cart',
             json={'productId': int(product_id), 'quantity': quantity},
         )
-        log.info(f'add_to_list {list_id}/{product_id}: HTTP {resp.status_code} — {resp.text[:300]}')
+        log.info(f'add_to_cart {product_id}: HTTP {resp.status_code} — {resp.text[:300]}')
         resp.raise_for_status()
+
+    def read_cart(self):
+        resp = self.session.get(f'{GURKERL_BASE}/services/frontend-service/v2/cart')
+        log.info(f'read_cart: HTTP {resp.status_code} — {resp.text[:600]}')
+        return resp.json() if resp.ok else {}
 
 
 gurkerl = GurkerClient()
@@ -268,16 +254,11 @@ def process_pending(req: dict):
 def process_confirmed(req: dict):
     request_id = req['id']
     matches = req.get('matches') or []
-    log.info(f'[{request_id[:8]}] Creating Gurkerl list for {len(matches)} items')
+    log.info(f'[{request_id[:8]}] Adding {len(matches)} items to cart')
     set_status(request_id, 'adding')
 
     try:
         gurkerl.ensure_logged_in()
-
-        from datetime import date
-        list_name = f'Einkauf {date.today().strftime("%d.%m.%Y")}'
-        list_id = gurkerl.create_list(list_name)
-        log.info(f'  Created list "{list_name}" (id={list_id})')
 
         added = []
         for match in matches:
@@ -286,7 +267,7 @@ def process_confirmed(req: dict):
                 log.info(f'  Skipping "{match["item_name"]}" — no product selected')
                 continue
 
-            gurkerl.add_to_list(list_id, product_id)
+            gurkerl.add_to_cart(product_id)
             time.sleep(0.3)
 
             item_id = match.get('item_id')
@@ -300,8 +281,9 @@ def process_confirmed(req: dict):
             added.append(match['item_name'])
             log.info(f'  ✓ {match["item_name"]}')
 
+        gurkerl.read_cart()
         set_status(request_id, 'done')
-        log.info(f'[{request_id[:8]}] Done — list "{list_name}" created with {len(added)} item(s)')
+        log.info(f'[{request_id[:8]}] Done — {len(added)} item(s) added to basket')
 
     except Exception as e:
         gurkerl._logged_in = False
