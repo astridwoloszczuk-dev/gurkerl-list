@@ -71,7 +71,10 @@ class GurkerClient:
             )
             resp.raise_for_status()
             data = resp.json()
-            orders = (data.get('data') or {}).get('orders', [])
+            if isinstance(data, list):
+                orders = data
+            else:
+                orders = (data.get('data') or {}).get('orders', [])
             counts: dict = {}
             for order in orders:
                 for p in order.get('products', []):
@@ -103,21 +106,27 @@ class GurkerClient:
             self._debug_logged = True
         return result
 
-    def _extract_products(self, search_response: dict) -> list:
-        data = search_response.get('data') or {}
-        # Try all known response shapes from different Rohlik API versions
-        if isinstance(data, list):
-            raw = data
+    def _extract_products(self, search_response) -> list:
+        # Gurkerl.at may return a plain list or a wrapped dict
+        if isinstance(search_response, list):
+            raw = search_response
+            if raw:
+                log.info(f'RAW PRODUCT FIELDS (first item): {list(raw[0].keys())}')
         else:
-            raw = (
-                data.get('products')
-                or data.get('productList', {}).get('products')
-                or data.get('hits', {}).get('hits')
-                or data.get('items')
-                or []
-            )
+            data = search_response.get('data') or {}
+            if isinstance(data, list):
+                raw = data
+            else:
+                raw = (
+                    data.get('products')
+                    or data.get('productList', {}).get('products')
+                    or data.get('hits', {}).get('hits')
+                    or data.get('items')
+                    or []
+                )
         if not raw:
-            log.warning(f'No products found. Top-level keys: {list(search_response.keys())}, data keys: {list(data.keys()) if isinstance(data, dict) else type(data)}')
+            top = list(search_response.keys()) if isinstance(search_response, dict) else type(search_response)
+            log.warning(f'No products found. Response type/keys: {top}')
 
         products = []
         for p in raw:
@@ -219,7 +228,8 @@ def process_pending(req: dict):
         log.info(f'[{request_id[:8]}] Matched {len(matches)} items — awaiting confirmation')
 
     except Exception as e:
-        gurkerl._logged_in = False  # force re-login on next request
+        gurkerl._logged_in = False
+        gurkerl._debug_logged = False
         fail(request_id, str(e))
 
 
@@ -258,6 +268,7 @@ def process_confirmed(req: dict):
 
     except Exception as e:
         gurkerl._logged_in = False
+        gurkerl._debug_logged = False
         fail(request_id, str(e))
 
 
