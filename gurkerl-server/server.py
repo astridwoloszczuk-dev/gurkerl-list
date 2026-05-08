@@ -117,13 +117,14 @@ class GurkerClient:
             if isinstance(data, list):
                 raw = data
             else:
+                pl = data.get('productList')
                 raw = (
                     data.get('products')
-                    or data.get('productList', {}).get('products')
-                    or data.get('hits', {}).get('hits')
+                    or (pl if isinstance(pl, list) else (pl or {}).get('products'))
+                    or (data.get('hits') or {}).get('hits')
                     or data.get('items')
                     or []
-                )
+                ) or []
         if not raw:
             top = list(search_response.keys()) if isinstance(search_response, dict) else type(search_response)
             log.warning(f'No products found. Response type/keys: {top}')
