@@ -62,6 +62,7 @@ class GurkerClient:
         if not self._logged_in:
             self.login()
             self._load_frequent_items()
+            self.discover_list_endpoints()
 
     def _load_frequent_items(self):
         try:
@@ -154,16 +155,31 @@ class GurkerClient:
         products.sort(key=lambda x: (0 if x['is_frequent'] else 1))
         return products[:5]
 
+    def discover_list_endpoints(self):
+        """Probe candidate endpoints to find the right lists API."""
+        candidates = [
+            ('GET',  '/api/v3/shoppingList'),
+            ('GET',  '/api/v3/shopping-lists'),
+            ('GET',  '/api/v3/lists'),
+            ('GET',  '/services/frontend-service/v2/lists'),
+            ('GET',  '/services/frontend-service/shopping-lists'),
+        ]
+        for method, path in candidates:
+            try:
+                resp = self.session.request(method, f'{GURKERL_BASE}{path}')
+                log.info(f'PROBE {method} {path} → {resp.status_code}: {resp.text[:200]}')
+            except Exception as e:
+                log.info(f'PROBE {method} {path} → ERROR: {e}')
+
     def create_list(self, name: str) -> str:
         """Create a new shopping list, return its ID."""
         resp = self.session.post(
-            f'{GURKERL_BASE}/services/frontend-service/lists',
+            f'{GURKERL_BASE}/api/v3/shoppingList',
             json={'name': name},
         )
         log.info(f'create_list: HTTP {resp.status_code} — {resp.text[:400]}')
         resp.raise_for_status()
         data = resp.json()
-        # Try common ID field names
         list_id = (
             (data.get('data') or {}).get('id')
             or (data.get('data') or {}).get('listId')
@@ -176,7 +192,7 @@ class GurkerClient:
 
     def add_to_list(self, list_id: str, product_id: str, quantity: int = 1):
         resp = self.session.post(
-            f'{GURKERL_BASE}/services/frontend-service/lists/{list_id}/products',
+            f'{GURKERL_BASE}/api/v3/shoppingList/{list_id}/products',
             json={'productId': int(product_id), 'quantity': quantity},
         )
         log.info(f'add_to_list {list_id}/{product_id}: HTTP {resp.status_code} — {resp.text[:300]}')
