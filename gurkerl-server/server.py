@@ -52,11 +52,13 @@ class GurkerClient:
         # Prime session with homepage visit (sets initial cookies)
         self.session.get(GURKERL_BASE)
 
+        # Try JSON with companyId
         resp = self.session.post(f'{GURKERL_BASE}/services/frontend-service/login', json={
             'email': GURKERL_EMAIL,
             'password': GURKERL_PASSWORD,
+            'companyId': 1,
         })
-        log.info(f'Login: HTTP {resp.status_code} — {resp.text[:600]}')
+        log.info(f'Login (json+companyId): HTTP {resp.status_code} — {resp.text[:600]}')
         try:
             data = resp.json()
             user = (data.get('data') or {}).get('user')
@@ -66,6 +68,15 @@ class GurkerClient:
                 return
         except Exception:
             pass
+
+        # Try form-encoded
+        resp2 = self.session.post(
+            f'{GURKERL_BASE}/services/frontend-service/login',
+            data={'email': GURKERL_EMAIL, 'password': GURKERL_PASSWORD},
+            headers={'Content-Type': 'application/x-www-form-urlencoded'},
+        )
+        log.info(f'Login (form): HTTP {resp2.status_code} — {resp2.text[:400]}')
+
         log.warning('Login user=null — proceeding with session cookies')
         self._logged_in = True
 
