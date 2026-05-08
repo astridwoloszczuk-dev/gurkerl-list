@@ -35,14 +35,17 @@ class GurkerClient:
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': (
-                'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) '
-                'AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148'
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                'AppleWebKit/537.36 (KHTML, like Gecko) '
+                'Chrome/124.0.0.0 Safari/537.36'
             ),
             'Accept': 'application/json, text/plain, */*',
             'Accept-Language': 'de-AT,de;q=0.9,en;q=0.8',
             'Content-Type': 'application/json',
             'Origin': GURKERL_BASE,
             'Referer': GURKERL_BASE + '/',
+            'x-origin': 'WEB',
+            'x-rohlikid': '63fa1e1ca210f4584d9e6771911cb1ec9d844825',
         })
         self.frequent_ids: set = set()
         self._logged_in = False
@@ -55,8 +58,8 @@ class GurkerClient:
         # Try JSON with companyId
         resp = self.session.post(f'{GURKERL_BASE}/services/frontend-service/login', json={
             'email': GURKERL_EMAIL,
+            'name': '',
             'password': GURKERL_PASSWORD,
-            'companyId': 1,
         })
         log.info(f'Login (json+companyId): HTTP {resp.status_code} — {resp.text[:600]}')
         try:
@@ -68,14 +71,6 @@ class GurkerClient:
                 return
         except Exception:
             pass
-
-        # Try form-encoded
-        resp2 = self.session.post(
-            f'{GURKERL_BASE}/services/frontend-service/login',
-            data={'email': GURKERL_EMAIL, 'password': GURKERL_PASSWORD},
-            headers={'Content-Type': 'application/x-www-form-urlencoded'},
-        )
-        log.info(f'Login (form): HTTP {resp2.status_code} — {resp2.text[:400]}')
 
         log.warning('Login user=null — proceeding with session cookies')
         self._logged_in = True
