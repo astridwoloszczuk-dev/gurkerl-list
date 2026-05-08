@@ -49,22 +49,22 @@ class GurkerClient:
         self._debug_logged = False  # log raw response once for debugging
 
     def login(self):
-        resp = self.session.post(f'{GURKERL_BASE}/services/frontend-service/login', json={
-            'email': GURKERL_EMAIL,
-            'password': GURKERL_PASSWORD,
-            'name': '',
-        })
-        resp.raise_for_status()
-        log.info(f'Login response: {resp.text[:600]}')
-        log.info(f'Login cookies: {dict(self.session.cookies)}')
-        # Use Bearer token if present
-        data = resp.json()
-        token = (data.get('data') or {}).get('token') or (data.get('data') or {}).get('accessToken') or data.get('token')
-        if token:
-            self.session.headers['Authorization'] = f'Bearer {token}'
-            log.info(f'Using Bearer token: {token[:40]}...')
-        self._logged_in = True
-        log.info('Logged into Gurkerl.at')
+        for endpoint in [
+            '/services/frontend-service/login',
+            '/services/frontend-service/v2/login',
+        ]:
+            resp = self.session.post(f'{GURKERL_BASE}{endpoint}', json={
+                'email': GURKERL_EMAIL,
+                'password': GURKERL_PASSWORD,
+            })
+            log.info(f'Login {endpoint}: HTTP {resp.status_code} — {resp.text[:400]}')
+            data = resp.json()
+            user = (data.get('data') or {}).get('user')
+            if user:
+                log.info(f'Authenticated as: {user}')
+                self._logged_in = True
+                return
+        raise RuntimeError(f'Login failed — user is null after all attempts. Check GURKERL_EMAIL/PASSWORD in .env')
 
     def _check_auth(self):
         for path in ['/services/frontend-service/user', '/services/frontend-service/profile', '/api/v3/user']:
