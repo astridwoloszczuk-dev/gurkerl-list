@@ -257,7 +257,8 @@
     #cart-btn.hidden { display: none; }
 
     /* ── Cart modal ── */
-    .cart-modal { max-height: 85vh; display: flex; flex-direction: column; padding: 24px 20px; }
+    .cart-modal { max-height: 85vh; display: flex; flex-direction: column; padding: 24px 20px; overflow: hidden; }
+    .cart-state { display: flex; flex-direction: column; flex: 1; min-height: 0; }
     .cart-state.hidden { display: none; }
 
     .cart-center { text-align: center; padding: 12px 0; }
@@ -275,7 +276,7 @@
     .cart-title { font-size: 1.05rem; font-weight: 700; margin-bottom: 4px; }
     .cart-subtitle { font-size: .8rem; color: var(--gray-600); margin-bottom: 14px; }
 
-    .cart-match-list { flex: 1; overflow-y: auto; margin: 0 -4px; padding: 0 4px 4px; }
+    .cart-match-list { flex: 1; overflow-y: auto; margin: 0 -4px; padding: 0 4px 4px; min-height: 0; }
     .match-item { margin-bottom: 13px; }
     .match-item-label {
       font-size: .72rem; font-weight: 600; color: var(--gray-600);
