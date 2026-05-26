@@ -33,7 +33,7 @@ else
   echo "✓ .env already exists — skipping credential setup"
 fi
 
-# ── 2. Install Python dependencies ────────────────────────────────────────────
+# ── 2. Create venv + install dependencies ────────────────────────────────────
 echo ""
 PYTHON=$(which python3 2>/dev/null || which python 2>/dev/null || true)
 if [ -z "$PYTHON" ]; then
@@ -41,7 +41,15 @@ if [ -z "$PYTHON" ]; then
   exit 1
 fi
 echo "Using Python: $PYTHON ($($PYTHON --version))"
-echo "Installing Python dependencies..."
+
+VENV="$REPO_DIR/gurkerl-server/venv"
+if [ ! -d "$VENV" ]; then
+  echo "Creating virtual environment..."
+  "$PYTHON" -m venv "$VENV"
+fi
+PYTHON="$VENV/bin/python"
+
+echo "Installing dependencies into venv..."
 "$PYTHON" -m pip install -q -r "$REPO_DIR/gurkerl-server/requirements.txt"
 echo "✓ Dependencies installed"
 
