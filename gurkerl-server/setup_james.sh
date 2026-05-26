@@ -35,8 +35,14 @@ fi
 
 # ── 2. Install Python dependencies ────────────────────────────────────────────
 echo ""
+PYTHON=$(which python3 2>/dev/null || which python 2>/dev/null || true)
+if [ -z "$PYTHON" ]; then
+  echo "Python not found. Install it first: brew install python3"
+  exit 1
+fi
+echo "Using Python: $PYTHON ($($PYTHON --version))"
 echo "Installing Python dependencies..."
-pip3 install -q -r "$REPO_DIR/gurkerl-server/requirements.txt"
+"$PYTHON" -m pip install -q -r "$REPO_DIR/gurkerl-server/requirements.txt"
 echo "✓ Dependencies installed"
 
 # ── 3. Write launchd plist ────────────────────────────────────────────────────
@@ -52,7 +58,7 @@ cat > "$PLIST" <<EOF
     <string>com.james.gurkerl-server</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/usr/bin/python3</string>
+        <string>$PYTHON</string>
         <string>$REPO_DIR/gurkerl-server/server.py</string>
     </array>
     <key>WorkingDirectory</key>
