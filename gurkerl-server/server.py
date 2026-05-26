@@ -199,7 +199,7 @@ def process_pending(req: dict):
 
         items_resp = (
             db.table('gurkerl_items')
-            .select('id, name')
+            .select('id, name, quantity')
             .eq('completed', False)
             .order('created_at')
             .execute()
@@ -221,6 +221,7 @@ def process_pending(req: dict):
             matches.append({
                 'item_id': item['id'],
                 'item_name': item['name'],
+                'quantity': item.get('quantity') or 1,
                 'candidates': candidates,
                 'selected_product_id': candidates[0]['product_id'] if candidates else None,
             })
@@ -250,7 +251,7 @@ def process_confirmed(req: dict):
                 log.info(f'  Skipping "{match["item_name"]}" — no product selected')
                 continue
 
-            gurkerl.add_to_cart(product_id)
+            gurkerl.add_to_cart(product_id, quantity=match.get('quantity', 1))
             time.sleep(0.3)
 
             item_id = match.get('item_id')

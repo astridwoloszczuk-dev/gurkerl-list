@@ -64,14 +64,9 @@ function timeAgo(isoString) {
 }
 
 // ── Render ───────────────────────────────────────────────────────────────────
-function renderItem(item) {
-  const existing = document.getElementById(`item-${item.id}`);
-  if (existing) { existing.remove(); }
-
-  const li = document.createElement('li');
-  li.id = `item-${item.id}`;
-  li.className = 'item' + (item.completed ? ' completed' : '');
-  li.innerHTML = `
+function itemHtml(item) {
+  const qty = item.quantity || 1;
+  return `
     <button class="check-btn" aria-label="Mark complete" data-id="${item.id}" data-done="${item.completed}">
       ${item.completed
         ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>'
@@ -81,10 +76,28 @@ function renderItem(item) {
       <span class="item-name">${escapeHtml(item.name)}</span>
       <span class="item-meta">${escapeHtml(item.added_by || '?')} · ${timeAgo(item.created_at)}</span>
     </div>
+    <div class="qty-stepper">
+      <button class="qty-btn" aria-label="Less" data-id="${item.id}" data-delta="-1">−</button>
+      <span class="qty-val">${qty}</span>
+      <button class="qty-btn" aria-label="More" data-id="${item.id}" data-delta="1">+</button>
+    </div>
     <button class="delete-btn" aria-label="Delete" data-id="${item.id}">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
     </button>
   `;
+}
+
+function renderItem(item) {
+  const existing = document.getElementById(`item-${item.id}`);
+  if (existing) {
+    existing.className = 'item' + (item.completed ? ' completed' : '');
+    existing.innerHTML = itemHtml(item);
+    return;
+  }
+  const li = document.createElement('li');
+  li.id = `item-${item.id}`;
+  li.className = 'item' + (item.completed ? ' completed' : '');
+  li.innerHTML = itemHtml(item);
   listEl.appendChild(li);
   updateEmpty();
 }
@@ -140,7 +153,7 @@ async function addItem() {
   inputEl.value = '';
   inputEl.focus();
 
-  const { error } = await db.from('gurkerl_items').insert({ name, added_by: currentUser });
+  const { error } = await db.from('gurkerl_items').insert({ name, added_by: currentUser, quantity: 1 });
   if (error) { console.error(error); inputEl.value = name; }
 }
 
@@ -200,6 +213,7 @@ if (!SpeechRecognition) {
 listEl.addEventListener('click', async e => {
   const checkBtn = e.target.closest('.check-btn');
   const deleteBtn = e.target.closest('.delete-btn');
+  const qtyBtn = e.target.closest('.qty-btn');
 
   if (checkBtn) {
     const id = checkBtn.dataset.id;
@@ -213,6 +227,17 @@ listEl.addEventListener('click', async e => {
   if (deleteBtn) {
     const id = deleteBtn.dataset.id;
     await db.from('gurkerl_items').delete().eq('id', id);
+  }
+
+  if (qtyBtn) {
+    const id = qtyBtn.dataset.id;
+    const delta = Number(qtyBtn.dataset.delta);
+    const valEl = qtyBtn.closest('.qty-stepper').querySelector('.qty-val');
+    const current = parseInt(valEl.textContent) || 1;
+    const next = Math.max(1, current + delta);
+    if (next === current) return;
+    valEl.textContent = next; // optimistic update
+    await db.from('gurkerl_items').update({ quantity: next }).eq('id', id);
   }
 });
 
