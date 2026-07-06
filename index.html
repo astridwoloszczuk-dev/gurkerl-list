@@ -168,6 +168,10 @@
       to   { opacity: 1; transform: translateY(0); }
     }
 
+    /* stock-bot proposals: tinted so they're recognisable, deletable one by one */
+    .item.stock-bot { background: #f2f8ee; box-shadow: inset 3px 0 0 var(--green); }
+    .item.stock-bot .item-meta::before { content: 'F916 '; }
+
     .check-btn {
       width: 26px;
       height: 26px;

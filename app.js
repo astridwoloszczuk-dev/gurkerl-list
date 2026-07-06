@@ -87,16 +87,21 @@ function itemHtml(item) {
   `;
 }
 
+function itemClass(item) {
+  return 'item' + (item.completed ? ' completed' : '')
+       + (item.added_by === 'stock-bot' ? ' stock-bot' : '');
+}
+
 function renderItem(item) {
   const existing = document.getElementById(`item-${item.id}`);
   if (existing) {
-    existing.className = 'item' + (item.completed ? ' completed' : '');
+    existing.className = itemClass(item);
     existing.innerHTML = itemHtml(item);
     return;
   }
   const li = document.createElement('li');
   li.id = `item-${item.id}`;
-  li.className = 'item' + (item.completed ? ' completed' : '');
+  li.className = itemClass(item);
   li.innerHTML = itemHtml(item);
   listEl.appendChild(li);
   updateEmpty();

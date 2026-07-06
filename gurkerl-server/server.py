@@ -21,11 +21,37 @@ GURKERL_PASSWORD  = os.environ['GURKERL_PASSWORD']
 GURKERL_BASE      = 'https://www.gurkerl.at'
 POLL_INTERVAL     = 5   # seconds between polls
 SEARCH_LIMIT      = 6   # candidates returned per item
+HC_GURKERL        = os.environ.get('HC_GURKERL', '')   # healthchecks UUID; empty = no-op
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 log = logging.getLogger(__name__)
 
+# Functional heartbeat: pings only when a poll cycle actually SUCCEEDS, so a live
+# process with a dead key/API reads as DOWN (the 2026-05→07 blind spot). Rate-limited.
+_hb_last = {'ok': 0.0, 'fail': 0.0}
+
+def _hb(ok=True, msg=''):
+    if not HC_GURKERL:
+        return
+    kind = 'ok' if ok else 'fail'
+    if time.time() - _hb_last[kind] < 300:
+        return
+    _hb_last[kind] = time.time()
+    try:
+        url = f'https://hc-ping.com/{HC_GURKERL}' + ('' if ok else '/fail')
+        requests.post(url, data=msg[:500] if msg else None, timeout=10)
+    except Exception:
+        pass
+
 db = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+
+class CartItemError(Exception):
+    """A single product was rejected by Gurkerl (e.g. out of stock) — skip it, keep going."""
+    def __init__(self, status, body):
+        self.status = status
+        self.body = body
+        super().__init__(f'Gurkerl rejected item ({status}): {body}')
 
 
 # ── Gurkerl API client ────────────────────────────────────────────────────────
@@ -82,12 +108,25 @@ class GurkerClient:
                 orders = data
             else:
                 orders = (data.get('data') or {}).get('orders', [])
+            # The list endpoint carries no products — fetch recent order DETAILS
+            # (found 2026-07-06: order['products'] never existed here, so the
+            # frequent-bias silently loaded 0 ids since launch). items[].id is
+            # the product id on the detail endpoint.
             counts: dict = {}
-            for order in orders:
-                for p in order.get('products', []):
-                    pid = p.get('productId')
-                    if pid:
-                        counts[pid] = counts.get(pid, 0) + 1
+            for order in orders[:10]:
+                oid = order.get('id')
+                if not oid:
+                    continue
+                try:
+                    det = self.session.get(f'{GURKERL_BASE}/api/v3/orders/{oid}')
+                    det.raise_for_status()
+                    for it in det.json().get('items', []):
+                        pid = it.get('id')
+                        if pid:
+                            counts[pid] = counts.get(pid, 0) + 1
+                except Exception:
+                    continue
+                time.sleep(0.2)
             self.frequent_ids = set(counts.keys())
             log.info(f'Order history: {len(self.frequent_ids)} known product IDs')
         except Exception as e:
@@ -166,6 +205,11 @@ class GurkerClient:
             f'{GURKERL_BASE}/services/frontend-service/v2/cart',
             json={'productId': int(product_id), 'quantity': quantity},
         )
+        # 4xx that isn't an auth/session problem = this specific product (out of stock,
+        # discontinued, stale id). Raise CartItemError so the caller can skip it and
+        # keep adding the rest. 401/403 stays a hard error (handled by ensure_logged_in).
+        if resp.status_code in (400, 404, 409, 422):
+            raise CartItemError(resp.status_code, resp.text[:200])
         resp.raise_for_status()
 
 
@@ -245,13 +289,21 @@ def process_confirmed(req: dict):
         gurkerl.ensure_logged_in()
 
         added = []
+        skipped = []
         for match in matches:
             product_id = match.get('selected_product_id')
             if not product_id:
                 log.info(f'  Skipping "{match["item_name"]}" — no product selected')
+                skipped.append(f'{match["item_name"]} (kein Produkt gewählt)')
                 continue
 
-            gurkerl.add_to_cart(product_id, quantity=match.get('quantity', 1))
+            try:
+                gurkerl.add_to_cart(product_id, quantity=match.get('quantity', 1))
+            except CartItemError as e:
+                # one bad product must NOT abort the whole basket
+                log.warning(f'  ✗ {match["item_name"]} — Gurkerl rejected ({e.status}): {e.body}')
+                skipped.append(f'{match["item_name"]} (nicht verfügbar)')
+                continue
             time.sleep(0.3)
 
             item_id = match.get('item_id')
@@ -265,8 +317,11 @@ def process_confirmed(req: dict):
             added.append(match['item_name'])
             log.info(f'  ✓ {match["item_name"]}')
 
-        set_status(request_id, 'done')
-        log.info(f'[{request_id[:8]}] Done — {len(added)} item(s) added to basket')
+        note = None
+        if skipped:
+            note = f'{len(added)} hinzugefügt. Nicht im Warenkorb: ' + ', '.join(skipped)
+        set_status(request_id, 'done', error=note)
+        log.info(f'[{request_id[:8]}] Done — {len(added)} added, {len(skipped)} skipped')
 
     except Exception as e:
         gurkerl._logged_in = False
@@ -297,8 +352,11 @@ def poll_loop():
             for req in confirmed.data or []:
                 process_confirmed(req)
 
+            _hb(True)
+
         except Exception as e:
             log.error(f'Poll error: {e}')
+            _hb(False, str(e))
 
         time.sleep(POLL_INTERVAL)
 
