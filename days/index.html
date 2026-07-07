@@ -54,6 +54,14 @@ footer{text-align:center;color:var(--mut);font-size:11px;margin-top:26px}
 <h2>Zum Abstimmen</h2>
 <div id="voting"><div class="empty">Loading…</div></div>
 
+<h2>💡 Ideen-Pool — Familientage</h2>
+<p style="font-size:11.5px;color:var(--mut);margin:-2px 0 8px">Alles, was der Planer auf Lager hat. Früh vetoen spart allen Zeit — wünschen holt es schneller dran.</p>
+<div id="pool"><div class="empty">Pool wird gefüllt…</div></div>
+
+<h2>🤫 Date-Night-Ideen</h2>
+<p style="font-size:11.5px;color:var(--mut);margin:-2px 0 8px">Nur gucken. Welche und wann — das weiß nur Mama. 😏</p>
+<div id="npool"><div class="empty">…</div></div>
+
 <h2>Was wir gemacht haben</h2>
 <div id="hist" class="hist"><div class="empty">Noch nichts — bald!</div></div>
 
@@ -125,6 +133,28 @@ function renderAll(hist){
       <div class="tally">👍 ${tally(p.id,'up')} · 🚫 ${tally(p.id,'veto')} · ⭐ ${tally(p.id,'wish')}</div>
     </div>`).join('')
     : '<div class="empty">Gerade nichts zum Abstimmen — der Planer meldet sich.</div>';
+
+  const dpool = plans.filter(p=>p.status==='pool' && p.flavour==='day');
+  document.getElementById('pool').innerHTML = dpool.length ? dpool.map(p=>`
+    <div class="card">
+      <h3>${esc(p.title)}</h3>
+      <div class="sum">${esc(p.summary || '')}</div>
+      <div class="cost">${p.est_cost_pp ? '~€'+p.est_cost_pp+' p.P.' : ''}</div>
+      <div class="acts">
+        <button class="veto ${myVote(p.id,'veto')?'on':''}" data-id="${p.id}" data-k="veto" ${me && (quota?.vetoes_left>0 || myVote(p.id,'veto'))?'':'disabled'}>🚫 Veto</button>
+        <button class="wish ${myVote(p.id,'wish')?'on':''}" data-id="${p.id}" data-k="wish" ${me && (quota?.wishes_left>0 || myVote(p.id,'wish'))?'':'disabled'}>⭐ Wunsch</button>
+      </div>
+      <div class="tally">🚫 ${tally(p.id,'veto')} · ⭐ ${tally(p.id,'wish')}</div>
+    </div>`).join('') : '<div class="empty">Pool wird gefüllt…</div>';
+
+  const npool = plans.filter(p=>p.status==='pool' && p.flavour==='night');
+  document.getElementById('npool').innerHTML = npool.length ? npool.map(p=>`
+    <div class="card" style="opacity:.88">
+      <h3>${esc(p.title)}</h3>
+      <div class="sum">${esc(p.summary || '')}</div>
+      <div class="cost">${p.est_cost_pp ? '~€'+p.est_cost_pp+' p.P.' : ''}</div>
+    </div>`).join('') : '<div class="empty">…</div>';
+
   document.querySelectorAll('.acts button').forEach(b=>b.onclick=()=>vote(b.dataset.id, b.dataset.k));
 
   if(hist) document.getElementById('hist').innerHTML = hist.length ? hist.map(h=>`
