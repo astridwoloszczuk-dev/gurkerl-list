@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Family Days</title>
+<link rel="manifest" href="manifest.json">
+<style>
+:root{--bg:#f4f6f8;--card:#fff;--ink:#1f2a37;--mut:#6b7785;--line:#e6eaef;
+  --acc:#7048e8;--good:#00b894;--warn:#e03e3e;--wish:#e8a713}
+*{box-sizing:border-box}html,body{margin:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  background:var(--bg);color:var(--ink);line-height:1.45}
+.wrap{max-width:640px;margin:0 auto;padding:0 14px 70px}
+header{padding:20px 0 8px;text-align:center}
+header h1{margin:0;font-size:22px}
+header p{margin:4px 0 0;color:var(--mut);font-size:12.5px}
+.who{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin:12px 0}
+.who button{border:1.5px solid var(--line);background:#fff;color:var(--mut);border-radius:999px;
+  padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer}
+.who button.on{background:var(--acc);border-color:var(--acc);color:#fff}
+.quota{text-align:center;font-size:12px;color:var(--mut);margin-bottom:10px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;
+  margin-bottom:12px;box-shadow:0 1px 3px rgba(20,30,45,.05)}
+.card h3{margin:0 0 2px;font-size:15.5px}
+.card .date{font-size:12px;font-weight:700;color:var(--acc);text-transform:uppercase;letter-spacing:.4px}
+.card .sum{font-size:13.5px;color:#33404f;margin:8px 0}
+.card .cost{font-size:12px;color:var(--mut)}
+.acts{display:flex;gap:8px;margin-top:10px}
+.acts button{flex:1;border:1.5px solid var(--line);background:#fff;border-radius:10px;
+  padding:9px 6px;font-size:13px;font-weight:700;cursor:pointer}
+.acts .up.on{background:var(--good);border-color:var(--good);color:#fff}
+.acts .veto.on{background:var(--warn);border-color:var(--warn);color:#fff}
+.acts .wish.on{background:var(--wish);border-color:var(--wish);color:#fff}
+.acts button:disabled{opacity:.4;cursor:default}
+.tally{font-size:11.5px;color:var(--mut);margin-top:7px}
+.empty{text-align:center;color:var(--mut);font-size:13.5px;padding:34px 10px}
+h2{font-size:13px;text-transform:uppercase;letter-spacing:.8px;color:var(--mut);margin:22px 0 8px}
+.hist .card{opacity:.92}
+.stars{font-size:16px;letter-spacing:2px;cursor:pointer;user-select:none}
+footer{text-align:center;color:var(--mut);font-size:11px;margin-top:26px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>🎉 Family Days</h1>
+  <p>Vote on what we do next — one veto and one wish each per month</p>
+</header>
+
+<div class="who" id="who"></div>
+<div class="quota" id="quota"></div>
+
+<h2>Zum Abstimmen</h2>
+<div id="voting"><div class="empty">Loading…</div></div>
+
+<h2>Was wir gemacht haben</h2>
+<div id="hist" class="hist"><div class="empty">Noch nichts — bald!</div></div>
+
+<footer>Der Planer liest die Stimmen, Mama hat das letzte Wort.<br>Date nights erscheinen hier nie. 🤫</footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL  = 'https://mezayharkjyvnnhvdlww.supabase.co';
+const SUPABASE_ANON = 'sb_publishable_bw3Kcni9Yc88BWLp6G93Gg_HIGbqOKF';
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+const ROSTER = ['Astrid','Niko','Alex','Max','Vicky'];
+let me = localStorage.getItem('fd-me') || '';
+let plans = [], votes = [], quota = null;
+
+const month = () => new Date().toISOString().slice(0,7);
+
+function renderWho(){
+  document.getElementById('who').innerHTML = ROSTER.map(r=>
+    `<button class="${r===me?'on':''}" data-r="${r}">${r}</button>`).join('');
+  document.querySelectorAll('#who button').forEach(b=>b.onclick=async()=>{
+    me = b.dataset.r; localStorage.setItem('fd-me', me);
+    await ensureQuota(); renderAll();
+  });
+}
+
+async function ensureQuota(){
+  if(!me) return;
+  const { data } = await db.from('fd_quota').select('*').eq('member', me);
+  quota = (data && data[0]) || null;
+  if(!quota || quota.month !== month()){
+    const fresh = { member: me, vetoes_left: 1, wishes_left: 1, month: month() };
+    await db.from('fd_quota').upsert(fresh);
+    quota = fresh;
+  }
+}
+
+async function load(){
+  const [p, v] = await Promise.all([
+    db.from('fd_plans').select('*').order('created_at', {ascending:false}),
+    db.from('fd_votes').select('*'),
+  ]);
+  plans = p.data || []; votes = v.data || [];
+  const h = await db.from('fd_history').select('*').order('event_date', {ascending:false}).limit(20);
+  renderAll(h.data || []);
+}
+
+function myVote(pid, kind){ return votes.some(v=>v.plan_id===pid && v.member===me && v.kind===kind); }
+function tally(pid, kind){ return votes.filter(v=>v.plan_id===pid && v.kind===kind).length; }
+
+function renderAll(hist){
+  renderWho();
+  document.getElementById('quota').textContent = me && quota
+    ? `${me}: ${quota.vetoes_left} Veto · ${quota.wishes_left} Wunsch übrig (${month()})`
+    : 'Wer bist du? Oben antippen.';
+  const voting = plans.filter(p=>p.status==='voting');
+  document.getElementById('voting').innerHTML = voting.length ? voting.map(p=>`
+    <div class="card">
+      <div class="date">${p.event_date || ''}</div>
+      <h3>${esc(p.title)}</h3>
+      <div class="sum">${esc(p.summary || '')}</div>
+      <div class="cost">${p.est_cost_pp ? '~€'+p.est_cost_pp+' p.P.' : ''}</div>
+      <div class="acts">
+        <button class="up ${myVote(p.id,'up')?'on':''}"   data-id="${p.id}" data-k="up"   ${me?'':'disabled'}>👍 Dafür</button>
+        <button class="veto ${myVote(p.id,'veto')?'on':''}" data-id="${p.id}" data-k="veto" ${me && (quota?.vetoes_left>0 || myVote(p.id,'veto'))?'':'disabled'}>🚫 Veto</button>
+        <button class="wish ${myVote(p.id,'wish')?'on':''}" data-id="${p.id}" data-k="wish" ${me && (quota?.wishes_left>0 || myVote(p.id,'wish'))?'':'disabled'}>⭐ Wunsch</button>
+      </div>
+      <div class="tally">👍 ${tally(p.id,'up')} · 🚫 ${tally(p.id,'veto')} · ⭐ ${tally(p.id,'wish')}</div>
+    </div>`).join('')
+    : '<div class="empty">Gerade nichts zum Abstimmen — der Planer meldet sich.</div>';
+  document.querySelectorAll('.acts button').forEach(b=>b.onclick=()=>vote(b.dataset.id, b.dataset.k));
+
+  if(hist) document.getElementById('hist').innerHTML = hist.length ? hist.map(h=>`
+    <div class="card">
+      <div class="date">${h.event_date}</div>
+      <h3>${esc(h.title)}</h3>
+      <div class="stars" data-id="${h.id}">${'★'.repeat(Math.round(h.rating||0))}${'☆'.repeat(5-Math.round(h.rating||0))}</div>
+    </div>`).join('') : '<div class="empty">Noch nichts — bald!</div>';
+  document.querySelectorAll('.stars').forEach(s=>s.onclick=async(ev)=>{
+    const r = Math.min(5, Math.max(1, Math.round((ev.offsetX / s.offsetWidth) * 5 + 0.5)));
+    await db.from('fd_history').update({rating: r}).eq('id', s.dataset.id);
+    load();
+  });
+}
+
+async function vote(pid, kind){
+  if(!me) return;
+  const had = myVote(pid, kind);
+  if(had){
+    await db.from('fd_votes').delete().eq('plan_id',pid).eq('member',me).eq('kind',kind);
+    if(kind==='veto') await bumpQuota('vetoes_left', +1);
+    if(kind==='wish') await bumpQuota('wishes_left', +1);
+  } else {
+    if(kind==='veto' && quota.vetoes_left<1) return;
+    if(kind==='wish' && quota.wishes_left<1) return;
+    await db.from('fd_votes').insert({plan_id:pid, member:me, kind});
+    if(kind==='veto') await bumpQuota('vetoes_left', -1);
+    if(kind==='wish') await bumpQuota('wishes_left', -1);
+  }
+  await ensureQuota(); await load();
+}
+
+async function bumpQuota(field, delta){
+  await db.from('fd_quota').update({[field]: Math.max(0, (quota[field]||0)+delta)}).eq('member', me);
+}
+
+function esc(s){ const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
+
+renderWho();
+ensureQuota().then(load);
+db.channel('fd').on('postgres_changes',{event:'*',schema:'public',table:'fd_plans'},load)
+               .on('postgres_changes',{event:'*',schema:'public',table:'fd_votes'},load).subscribe();
+</script>
+</body>
+</html>

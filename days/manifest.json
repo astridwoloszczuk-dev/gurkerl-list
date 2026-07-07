@@ -1,0 +1,9 @@
+{
+  "name": "Family Days",
+  "short_name": "FamilyDays",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#f4f6f8",
+  "theme_color": "#7048e8",
+  "icons": [{ "src": "../icon-192.svg", "sizes": "192x192", "type": "image/svg+xml" }]
+}
