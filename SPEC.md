@@ -146,3 +146,31 @@ fuel_ping cron — no new cron).
 
 *(none at handover — builder asks Astrid for: initial pantry seed counts, and one
 new healthchecks UUID. Genuine design forks go here.)*
+
+## Build notes (built overnight 2026-07-06→07, by Fable — Astrid waived the
+## division of labour for the subscription's last night)
+
+Shipped per spec, with these deviations/findings:
+- **STALE_DAYS=14 added to the projection**: items whose projected runout is >2 weeks
+  past and never repurchased (seasonal berries, abandoned products) are NOT proposed —
+  the household demonstrably lives without them. Cut the first real list from 41 → 26
+  sane items (inserted Mon evening; the Wed 05:30 cron tops up idempotently).
+- **Found + fixed a latent cart-bot bug**: `_load_frequent_items` read
+  `order['products']` from the delivered-orders LIST endpoint, which has no products —
+  the frequent-items bias had loaded **0 ids since launch**. Now fetches the last 10
+  order details (`/api/v3/orders/{id}` → `items[].id`). First proof will be the next
+  cart push ("Order history: N known product IDs" > 0 in server.log).
+- **Consumption data source**: order detail endpoint `items[]` uses `name` + `amount`;
+  the list endpoint only carries dates/ids → two-phase fetch.
+- **Backup manifest extended** (`backup.sh`): now includes `*_state.json` and
+  `fuel_stock.json` (the old pattern `state.json` matched nothing — none of the
+  nutrition state files were being backed up).
+- **fuel_stock first run backfilled 7 diary days**: gummies 40→27, electrolytes 15→8
+  (runout ~15 Jul — expect the first low-stock ping within days). Seeds are ESTIMATES
+  until Astrid supplies real counts (edit `fuel_stock.json` seed+count,
+  `estimated:false`).
+- **Cron shipped un-heartbeated** (criterion 6 partially deferred): stock_bot carries
+  semantic-ping code reading `HC_STOCKBOT` from the gurkerl `.env` — add the UUID and
+  it's live. Astrid's TODO.
+- **Repo housekeeping**: a divergent local draft of `shop/` + `schema_shop.sql` (older
+  than the pushed boys-shop v1) was parked at `archive/_misc/shop-local-draft-20260706/`.
