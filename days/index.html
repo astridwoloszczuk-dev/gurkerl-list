@@ -33,6 +33,10 @@ header p{margin:4px 0 0;color:var(--mut);font-size:12.5px}
 .acts .veto.on{background:var(--warn);border-color:var(--warn);color:#fff}
 .acts .wish.on{background:var(--wish);border-color:var(--wish);color:#fff}
 .acts button:disabled{opacity:.4;cursor:default}
+.pick{width:100%;margin-top:8px;border:none;background:var(--good);color:#fff;border-radius:10px;
+  padding:10px;font-size:13.5px;font-weight:800;cursor:pointer}
+.chosen-badge{display:inline-block;font-size:11px;font-weight:800;color:#fff;background:var(--good);
+  border-radius:999px;padding:3px 10px;margin-bottom:6px}
 .tally{font-size:11.5px;color:var(--mut);margin-top:7px}
 .empty{text-align:center;color:var(--mut);font-size:13.5px;padding:34px 10px}
 h2{font-size:13px;text-transform:uppercase;letter-spacing:.8px;color:var(--mut);margin:22px 0 8px}
@@ -118,8 +122,16 @@ function renderAll(hist){
   document.getElementById('quota').textContent = me && quota
     ? `${me}: ${quota.vetoes_left} Veto · ${quota.wishes_left} Wunsch übrig (${month()})`
     : 'Wer bist du? Oben antippen.';
+  const picked = plans.filter(p=>p.status==='chosen'||p.status==='scheduled');
   const voting = plans.filter(p=>p.status==='voting');
-  document.getElementById('voting').innerHTML = voting.length ? voting.map(p=>`
+  const pickedHtml = picked.map(p=>`
+    <div class="card">
+      <span class="chosen-badge">✓ Gewählt${p.status==='scheduled'?' · im Kalender':''}</span>
+      <div class="date">${p.event_date || ''}</div>
+      <h3>${esc(p.title)}</h3>
+      <div class="sum">${esc(p.summary || '')}</div>
+    </div>`).join('');
+  document.getElementById('voting').innerHTML = pickedHtml + (voting.length ? voting.map(p=>`
     <div class="card">
       <div class="date">${p.event_date || ''}</div>
       <h3>${esc(p.title)}</h3>
@@ -131,8 +143,14 @@ function renderAll(hist){
         <button class="wish ${myVote(p.id,'wish')?'on':''}" data-id="${p.id}" data-k="wish" ${me && (quota?.wishes_left>0 || myVote(p.id,'wish'))?'':'disabled'}>⭐ Wunsch</button>
       </div>
       <div class="tally">👍 ${tally(p.id,'up')} · 🚫 ${tally(p.id,'veto')} · ⭐ ${tally(p.id,'wish')}</div>
+      ${me==='Astrid' ? `<button class="pick" data-id="${p.id}">✓ Nehmen wir! (Mama-Entscheid)</button>` : ''}
     </div>`).join('')
-    : '<div class="empty">Gerade nichts zum Abstimmen — der Planer meldet sich.</div>';
+    : (picked.length ? '' : '<div class="empty">Gerade nichts zum Abstimmen — der Planer meldet sich.</div>'));
+  document.querySelectorAll('.pick').forEach(b=>b.onclick=async()=>{
+    b.disabled = true;
+    await db.from('fd_plans').update({status:'chosen'}).eq('id', b.dataset.id);
+    load();
+  });
 
   const dpool = plans.filter(p=>p.status==='pool' && p.flavour==='day');
   document.getElementById('pool').innerHTML = dpool.length ? dpool.map(p=>`
