@@ -170,7 +170,17 @@
 
     /* stock-bot proposals: tinted so they're recognisable, deletable one by one */
     .item.stock-bot { background: #f2f8ee; box-shadow: inset 3px 0 0 var(--green); }
-    .item.stock-bot .item-meta::before { content: 'F916 '; }
+    .item.stock-bot .item-meta::before { content: '\1F916\20'; }  /* robot + space; was a stray 0x01 byte that rendered as "F916" */
+
+    /* meal-draft prep items: amber, so they never read as stock-bot green. Deletable one
+       by one like every item; deliberately no bulk delete. */
+    .item.prep-cook { background: #fff7e6; box-shadow: inset 3px 0 0 #f59e0b; }
+    .item-note {
+      display: inline-block; margin-left: 4px; padding: 0 6px; border-radius: 999px;
+      background: var(--gray-100); color: var(--gray-600); font-size: .68rem; line-height: 1.5;
+      max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom;
+    }
+    .item.prep-cook .item-note { background: #fde68a; color: #78350f; }
 
     .check-btn {
       width: 26px;

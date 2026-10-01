@@ -74,7 +74,7 @@ function itemHtml(item) {
     </button>
     <div class="item-body">
       <span class="item-name">${escapeHtml(item.name)}</span>
-      <span class="item-meta">${escapeHtml(item.added_by || '?')} · ${timeAgo(item.created_at)}</span>
+      <span class="item-meta">${escapeHtml(item.added_by || '?')} · ${timeAgo(item.created_at)}${noteTag(item)}</span>
     </div>
     <div class="qty-stepper">
       <button class="qty-btn" aria-label="Less" data-id="${item.id}" data-delta="-1">−</button>
@@ -87,9 +87,18 @@ function itemHtml(item) {
   `;
 }
 
+// Why an item is here: meal-draft's prep items carry the dish(es) they are for
+// ("Prep · Stroganoff + Curry"); any other item with a note just shows the note.
+function noteTag(item) {
+  if (!item.note) return '';
+  const label = item.added_by === 'prep-cook' ? `Prep · ${item.note}` : item.note;
+  return ` <span class="item-note">${escapeHtml(label)}</span>`;
+}
+
 function itemClass(item) {
   return 'item' + (item.completed ? ' completed' : '')
-       + (item.added_by === 'stock-bot' ? ' stock-bot' : '');
+       + (item.added_by === 'stock-bot' ? ' stock-bot' : '')
+       + (item.added_by === 'prep-cook' ? ' prep-cook' : '');
 }
 
 function renderItem(item) {
