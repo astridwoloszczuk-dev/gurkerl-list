@@ -88,10 +88,12 @@ function itemHtml(item) {
 }
 
 // Why an item is here: meal-draft's prep items carry the dish(es) they are for
-// ("Prep · Stroganoff + Curry"); any other item with a note just shows the note.
+// ("Prep · Stroganoff + Curry"); items only for a quick-fresh dinner bring their own label
+// in the note ("Frisch · Gnocchi Sorrentina"). Any other item with a note shows the note.
 function noteTag(item) {
   if (!item.note) return '';
-  const label = item.added_by === 'prep-cook' ? `Prep · ${item.note}` : item.note;
+  const labelled = /^(Prep|Frisch) · /.test(item.note);
+  const label = item.added_by === 'prep-cook' && !labelled ? `Prep · ${item.note}` : item.note;
   return ` <span class="item-note">${escapeHtml(label)}</span>`;
 }
 
